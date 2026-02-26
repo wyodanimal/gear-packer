@@ -482,12 +482,31 @@
     </div>
     
     <script>
-        // Gear database will be injected here
-        // Google Sheet CSV URL - edit your sheet, this tool updates automatically
         const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRo_0r0lmyUU-xzfQiRS8Rzf1f4tpApyi8R9nX5qi6HE2Icc6uw1JWgZZY0UH59EFncFnsP6gjOEH5e/pub?gid=524249775&single=true&output=csv';
 
         let gearDatabase = [];
         let dataLoaded = false;
+
+        // Maps form activity values to exact CSV column names
+        // FIX: was appending _hunting to everything, breaking camping/scouting/bikepacking
+        const ACTIVITY_COL_MAP = {
+            'elk':              'Act_elk_hunting',
+            'deer':             'Act_deer_hunting',
+            'antelope':         'Act_antelope_hunting',
+            'turkey':           'Act_turkey_hunting',
+            'small_game':       'Act_small_game',
+            'bikepacking':      'Act_bikepacking',
+            'ebike_bikepacking':'Act_ebike_bikepacking',
+            'camping':          'Act_camping',
+            'scouting':         'Act_scouting'
+        };
+
+        // Maps mobility selection to exact item_name in CSV
+        // FIX: forces selected bike/ebike into critical regardless of activity priority
+        const MOBILITY_ITEM_MAP = {
+            'bike':  'Trek Farley',
+            'ebike': 'Ultra Beast Ebike'
+        };
 
         function parseCSV(csvText) {
             const lines = csvText.split('\n');
@@ -496,7 +515,6 @@
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
-                // Handle quoted fields
                 const values = [];
                 let inQuote = false;
                 let current = '';
@@ -539,11 +557,8 @@
             }
         }
 
-        // Load data on page open
         loadGearData();
 
-        
-        // Form submission
         document.getElementById('tripForm').addEventListener('submit', function(e) {
             e.preventDefault();
             if (!dataLoaded) {
@@ -587,7 +602,6 @@
         function parseGearCode(code, tripDays) {
             if (!code || code === '') return null;
             
-            // Check if it's rate-based (contains /)
             if (code.includes('/')) {
                 const match = code.match(/^([CONX])(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
                 if (match) {
@@ -599,7 +613,6 @@
                 }
             }
             
-            // Simple priority (C, O, N, X)
             if (['C', 'O', 'N', 'X'].includes(code)) {
                 return { priority: code, quantity: 1 };
             }
@@ -608,20 +621,23 @@
         }
         
         function filterAndCategorize(formData) {
-            const activityCol = `Act_${formData.activity}_hunting`;
+            // FIX: use the column map instead of blindly appending _hunting
+            const activityCol = ACTIVITY_COL_MAP[formData.activity];
             const modeCol = `Mode_${formData.baseType}`;
             
-            // Filter items
+            // FIX: get the bike item name if a bike is selected
+            const forcedBikeName = MOBILITY_ITEM_MAP[formData.mobility] || null;
+
             let filtered = gearDatabase.filter(item => {
-                // Parse the activity value
+                // FIX: if this is the selected bike, always include it regardless of activity column
+                if (forcedBikeName && item.item_name === forcedBikeName) return true;
+
                 const parsed = parseGearCode(item[activityCol], formData.duration);
                 if (!parsed) return false;
                 
-                // Check mode (blank = works for all modes)
                 const modeValue = item[modeCol];
-                if (modeValue && modeValue === 'X') return false; // Explicitly excluded
+                if (modeValue && modeValue === 'X') return false;
                 
-                // Check temperature (blank = works for all temps)
                 if (formData.temperatures.length > 0) {
                     const hasTempRestriction = item.Temp_below_20F || item.Temp_20_to_40F || 
                                               item.Temp_40_to_60F || item.Temp_above_60F;
@@ -634,14 +650,18 @@
                 return true;
             });
             
-            // Categorize by priority
             const critical = [];
             const options = [];
             const nice = [];
             const available = [];
             
             filtered.forEach(item => {
-                const parsed = parseGearCode(item[activityCol], formData.duration);
+                // FIX: if this is the selected bike, force it critical
+                const isForcedBike = forcedBikeName && item.item_name === forcedBikeName;
+                const parsed = isForcedBike 
+                    ? { priority: 'C', quantity: 1 }
+                    : parseGearCode(item[activityCol], formData.duration);
+
                 if (!parsed) return;
                 
                 const itemData = {
@@ -723,6 +743,12 @@
                 'tent': 'Vehicle + Tent',
                 'backcountry': 'Backcountry'
             };
+
+            const mobilityNames = {
+                'foot': 'On Foot',
+                'bike': 'Bike (Trek Farley)',
+                'ebike': 'E-Bike (UltraBeast)'
+            };
             
             const tempDisplay = formData.temperatures.map(t => {
                 if (t === 'below_20F') return 'Below 20°F';
@@ -742,7 +768,7 @@
                     <strong>Base:</strong> ${baseNames[formData.baseType]}<br>
                     <strong>Temperature:</strong> ${tempDisplay}<br>
                     <strong>Duration:</strong> ${formData.duration} days<br>
-                    <strong>Mobility:</strong> ${formData.mobility}
+                    <strong>Mobility:</strong> ${mobilityNames[formData.mobility]}
                 </div>
                 
                 <div class="gear-section">
@@ -750,19 +776,15 @@
             
             let totalItems = 0;
             
-            // Critical items
             html += renderPrioritySection('🔴 CRITICAL (Auto-packed)', result.critical, 'critical');
             totalItems += countItems(result.critical);
             
-            // Options
             html += renderPrioritySection('🔵 OPTIONS (Choose one or more)', result.options, 'option');
             totalItems += countItems(result.options);
             
-            // Nice to have
             html += renderPrioritySection('📦 NICE TO HAVE', result.nice, 'nice');
             totalItems += countItems(result.nice);
             
-            // Available
             html += renderPrioritySection('💡 AVAILABLE (If needed)', result.available, 'available');
             totalItems += countItems(result.available);
             
@@ -834,7 +856,6 @@
             
             let html = '<h3>✓ Your Final Packing List</h3>';
             
-            // Critical items
             if (critical.length > 0) {
                 html += '<div class="final-section"><h4>Critical Items</h4><ul class="final-list">';
                 critical.forEach(item => {
@@ -843,7 +864,6 @@
                 html += '</ul></div>';
             }
             
-            // Selected optional items
             if (selected.length > 0) {
                 html += '<div class="final-section"><h4>Your Selected Items</h4><ul class="final-list">';
                 selected.forEach(item => {
