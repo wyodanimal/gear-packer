@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wyoming Gear Packing List Generator v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #ff6b35;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-section {
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ff6b35;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        select, input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #ff6b35;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        input[type="checkbox"], input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: normal;
+            color: #e0e0e0;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #ff6b35;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #e55a2b;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        #output {
+            display: none;
+        }
+        
+        #output.show {
+            display: block;
+        }
+        
+        .output-header {
+            background: #2a2a2a;
+            padding: 20px 25px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .output-header h2 {
+            color: #ff6b35;
+            font-size: 24px;
+        }
+        
+        .btn-secondary {
+            padding: 8px 16px;
+            background: #444;
+            color: #e0e0e0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-secondary:hover {
+            background: #555;
+        }
+        
+        .trip-summary {
+            background: #2a2a2a;
+            padding: 20px 25px;
+            font-size: 14px;
+            border-bottom: 2px solid #ff6b35;
+        }
+        
+        .trip-summary strong {
+            color: #ff6b35;
+        }
+        
+        .gear-section {
+            background: #2a2a2a;
+            padding: 25px;
+        }
+        
+        .gear-section:last-child {
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .priority-category {
+            margin-bottom: 30px;
+        }
+        
+        .priority-category:last-child {
+            margin-bottom: 0;
+        }
+        
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #444;
+        }
+        
+        .category-header h3 {
+            color: #ff6b35;
+            font-size: 20px;
+            margin: 0;
+        }
+        
+        .category-count {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .system-group {
+            margin-bottom: 20px;
+        }
+        
+        .system-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .system-name {
+            color: #aaa;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .gear-list {
+            list-style: none;
+        }
+        
+        .gear-item {
+            padding: 8px 0;
+            padding-left: 30px;
+            position: relative;
+            font-size: 15px;
+        }
+        
+        .gear-item.critical:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .gear-item.option,
+        .gear-item.nice,
+        .gear-item.available {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .gear-item.option:hover,
+        .gear-item.nice:hover,
+        .gear-item.available:hover {
+            background: rgba(255, 107, 53, 0.1);
+            border-radius: 4px;
+            margin-left: -5px;
+            padding-left: 35px;
+        }
+        
+        .gear-item.option:before,
+        .gear-item.nice:before,
+        .gear-item.available:before {
+            content: "☐";
+            position: absolute;
+            left: 0;
+            color: #ff6b35;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        
+        .gear-item.selected:before {
+            content: "☑";
+            color: #4CAF50;
+        }
+        
+        .gear-item.selected {
+            color: #4CAF50;
+        }
+        
+        .dependency {
+            color: #888;
+            font-size: 13px;
+            margin-left: 10px;
+            font-style: italic;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        
+        .stats {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .stats strong {
+            color: #ff6b35;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .action-buttons button {
+            flex: 1;
+            padding: 12px;
+            font-size: 15px;
+        }
+        
+        .btn-final {
+            background: #4CAF50;
+        }
+        
+        .btn-final:hover {
+            background: #45a049;
+        }
+        
+        .btn-clear {
+            background: #666;
+        }
+        
+        .btn-clear:hover {
+            background: #777;
+        }
+        
+        #finalList {
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        #finalList.show {
+            display: block;
+        }
+        
+        #finalList h3 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+        
+        .final-section {
+            margin-bottom: 20px;
+        }
+        
+        .final-section h4 {
+            color: #ff6b35;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .final-list {
+            list-style: none;
+        }
+        
+        .final-list li {
+            padding: 5px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .final-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wyoming Gear Packing List Generator</h1>
+        <p class="subtitle">CSV-driven packing list with smart filtering</p>
+        <p id="dataStatus" style="font-size:13px; margin-bottom:15px; color:#888;">Loading gear data...</p>
+        
+        <div class="form-section">
+            <form id="tripForm">
+                <div class="form-group">
+                    <label for="activity">Activity Type</label>
+                    <select id="activity" required>
+                        <option value="">Select activity...</option>
+                        <option value="elk">Elk Hunting</option>
+                        <option value="deer">Deer Hunting (Black Hills)</option>
+                        <option value="antelope">Antelope Hunting</option>
+                        <option value="turkey">Turkey Hunting</option>
+                        <option value="small_game">Small Game</option>
+                        <option value="bikepacking">Bikepacking</option>
+                        <option value="ebike_bikepacking">E-Bike Bikepacking</option>
+                        <option value="camping">Camping</option>
+                        <option value="scouting">Scouting</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="baseType">Base Type</label>
+                    <select id="baseType" required>
+                        <option value="">Select base type...</option>
+                        <option value="cabin">Cabin</option>
+                        <option value="camper">Camper</option>
+                        <option value="tent">Vehicle + Tent</option>
+                        <option value="backcountry">Backcountry (No Vehicle)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Temperature Range (Select all that apply)</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="temp_above_60" value="above_60F">
+                            <label for="temp_above_60">Above 60°F</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="temp_40_to_60" value="40_to_60F">
+                            <label for="temp_40_to_60">40-60°F</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="temp_20_to_40" value="20_to_40F" checked>
+                            <label for="temp_20_to_40">20-40°F</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="temp_below_20" value="below_20F">
+                            <label for="temp_below_20">Below 20°F</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="duration">Trip Duration (days)</label>
+                    <input type="number" id="duration" min="1" max="30" value="3" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Mobility</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="radio" name="mobility" id="mob_foot" value="foot" checked>
+                            <label for="mob_foot">On Foot</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="radio" name="mobility" id="mob_bike" value="bike">
+                            <label for="mob_bike">Bike (Trek Farley)</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="radio" name="mobility" id="mob_ebike" value="ebike">
+                            <label for="mob_ebike">E-Bike (UltraBeast)</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Conditions</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="cond_snow" value="snow">
+                            <label for="cond_snow">Snow</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="cond_wet" value="wet">
+                            <label for="cond_wet">Wet/Rain</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="cond_wind" value="wind">
+                            <label for="cond_wind">Strong Wind</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit">Generate Packing List</button>
+            </form>
+        </div>
+        
+        <div id="output"></div>
+    </div>
+    
+    <script>
+        // Gear database will be injected here
+        // Google Sheet CSV URL - edit your sheet, this tool updates automatically
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRo_0r0lmyUU-xzfQiRS8Rzf1f4tpApyi8R9nX5qi6HE2Icc6uw1JWgZZY0UH59EFncFnsP6gjOEH5e/pub?gid=524249775&single=true&output=csv';
+
+        let gearDatabase = [];
+        let dataLoaded = false;
+
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            const headers = lines[0].split(',').map(h => h.trim().replace(/\r/g, ''));
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                // Handle quoted fields
+                const values = [];
+                let inQuote = false;
+                let current = '';
+                for (let c = 0; c < line.length; c++) {
+                    if (line[c] === '"') {
+                        inQuote = !inQuote;
+                    } else if (line[c] === ',' && !inQuote) {
+                        values.push(current.trim());
+                        current = '';
+                    } else {
+                        current += line[c];
+                    }
+                }
+                values.push(current.trim());
+                const row = {};
+                headers.forEach((h, idx) => {
+                    row[h] = (values[idx] || '').replace(/\r/g, '');
+                });
+                rows.push(row);
+            }
+            return rows;
+        }
+
+        async function loadGearData() {
+            const statusEl = document.getElementById('dataStatus');
+            try {
+                statusEl.textContent = 'Loading gear data from Google Sheets...';
+                statusEl.style.color = '#888';
+                const response = await fetch(SHEET_CSV_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const csvText = await response.text();
+                gearDatabase = parseCSV(csvText);
+                dataLoaded = true;
+                statusEl.textContent = `✓ ${gearDatabase.length} gear items loaded`;
+                statusEl.style.color = '#4CAF50';
+            } catch (err) {
+                statusEl.textContent = '✗ Could not load gear data. Check your internet connection or Sheet publish settings.';
+                statusEl.style.color = '#e55a2b';
+                console.error('Gear data load error:', err);
+            }
+        }
+
+        // Load data on page open
+        loadGearData();
+
+        
+        // Form submission
+        document.getElementById('tripForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!dataLoaded) {
+                alert('Gear data is still loading. Please wait a moment and try again.');
+                return;
+            }
+            
+            const temps = [];
+            if (document.getElementById('temp_above_60').checked) temps.push('above_60F');
+            if (document.getElementById('temp_40_to_60').checked) temps.push('40_to_60F');
+            if (document.getElementById('temp_20_to_40').checked) temps.push('20_to_40F');
+            if (document.getElementById('temp_below_20').checked) temps.push('below_20F');
+            
+            const formData = {
+                activity: document.getElementById('activity').value,
+                baseType: document.getElementById('baseType').value,
+                temperatures: temps,
+                duration: parseInt(document.getElementById('duration').value),
+                mobility: document.querySelector('input[name="mobility"]:checked').value,
+                conditions: {
+                    snow: document.getElementById('cond_snow').checked,
+                    wet: document.getElementById('cond_wet').checked,
+                    wind: document.getElementById('cond_wind').checked
+                }
+            };
+            
+            generatePackingList(formData);
+        });
+        
+        function generatePackingList(formData) {
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="loading">Generating your packing list...</div>';
+            output.classList.add('show');
+            
+            setTimeout(() => {
+                const result = filterAndCategorize(formData);
+                displayPackingList(formData, result);
+            }, 300);
+        }
+        
+        function parseGearCode(code, tripDays) {
+            if (!code || code === '') return null;
+            
+            // Check if it's rate-based (contains /)
+            if (code.includes('/')) {
+                const match = code.match(/^([CONX])(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+                if (match) {
+                    const priority = match[1];
+                    const baseQty = parseFloat(match[2]);
+                    const period = parseFloat(match[3]);
+                    const quantity = Math.ceil(tripDays / period) * baseQty;
+                    return { priority, quantity };
+                }
+            }
+            
+            // Simple priority (C, O, N, X)
+            if (['C', 'O', 'N', 'X'].includes(code)) {
+                return { priority: code, quantity: 1 };
+            }
+            
+            return null;
+        }
+        
+        function filterAndCategorize(formData) {
+            const activityCol = `Act_${formData.activity}_hunting`;
+            const modeCol = `Mode_${formData.baseType}`;
+            
+            // Filter items
+            let filtered = gearDatabase.filter(item => {
+                // Parse the activity value
+                const parsed = parseGearCode(item[activityCol], formData.duration);
+                if (!parsed) return false;
+                
+                // Check mode (blank = works for all modes)
+                const modeValue = item[modeCol];
+                if (modeValue && modeValue === 'X') return false; // Explicitly excluded
+                
+                // Check temperature (blank = works for all temps)
+                if (formData.temperatures.length > 0) {
+                    const hasTempRestriction = item.Temp_below_20F || item.Temp_20_to_40F || 
+                                              item.Temp_40_to_60F || item.Temp_above_60F;
+                    if (hasTempRestriction) {
+                        const matchesTemp = formData.temperatures.some(t => item[`Temp_${t}`]);
+                        if (!matchesTemp) return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            // Categorize by priority
+            const critical = [];
+            const options = [];
+            const nice = [];
+            const available = [];
+            
+            filtered.forEach(item => {
+                const parsed = parseGearCode(item[activityCol], formData.duration);
+                if (!parsed) return;
+                
+                const itemData = {
+                    name: item.item_name,
+                    quantity: parsed.quantity,
+                    system: getSystem(item),
+                    requires: [item.required_item_1, item.required_item_2, item.required_item_3, item.required_item_4].filter(Boolean),
+                    rawItem: item
+                };
+                
+                if (parsed.priority === 'C') critical.push(itemData);
+                else if (parsed.priority === 'O') options.push(itemData);
+                else if (parsed.priority === 'N') nice.push(itemData);
+                else if (parsed.priority === 'X') available.push(itemData);
+            });
+            
+            // Add required dependencies for critical items
+            const allCritical = [...critical];
+            critical.forEach(item => {
+                item.requires.forEach(reqName => {
+                    if (!allCritical.find(i => i.name === reqName)) {
+                        const reqItem = gearDatabase.find(i => i.item_name === reqName);
+                        if (reqItem) {
+                            allCritical.push({
+                                name: reqItem.item_name,
+                                system: getSystem(reqItem),
+                                requires: [],
+                                rawItem: reqItem,
+                                autoAdded: true
+                            });
+                        }
+                    }
+                });
+            });
+            
+            return {
+                critical: groupBySystem(allCritical),
+                options: groupBySystem(options),
+                nice: groupBySystem(nice),
+                available: groupBySystem(available)
+            };
+        }
+        
+        function getSystem(item) {
+            for (let key in item) {
+                if (key.startsWith('Sys_') && item[key]) {
+                    return key.replace('Sys_', '').replace(/_/g, ' ');
+                }
+            }
+            return 'Other';
+        }
+        
+        function groupBySystem(items) {
+            const groups = {};
+            items.forEach(item => {
+                const sys = item.system;
+                if (!groups[sys]) groups[sys] = [];
+                groups[sys].push(item);
+            });
+            return groups;
+        }
+        
+        function displayPackingList(formData, result) {
+            const activityNames = {
+                'deer': 'Deer Hunting',
+                'elk': 'Elk Hunting',
+                'antelope': 'Antelope Hunting',
+                'turkey': 'Turkey Hunting',
+                'small_game': 'Small Game',
+                'bikepacking': 'Bikepacking',
+                'ebike_bikepacking': 'E-Bike Bikepacking',
+                'camping': 'Camping',
+                'scouting': 'Scouting'
+            };
+            
+            const baseNames = {
+                'cabin': 'Cabin',
+                'camper': 'Camper',
+                'tent': 'Vehicle + Tent',
+                'backcountry': 'Backcountry'
+            };
+            
+            const tempDisplay = formData.temperatures.map(t => {
+                if (t === 'below_20F') return 'Below 20°F';
+                if (t === '20_to_40F') return '20-40°F';
+                if (t === '40_to_60F') return '40-60°F';
+                if (t === 'above_60F') return 'Above 60°F';
+            }).join(', ') || 'All temps';
+            
+            let html = `
+                <div class="output-header">
+                    <h2>Your Packing List</h2>
+                    <button class="btn-secondary" onclick="window.print()">Print</button>
+                </div>
+                
+                <div class="trip-summary">
+                    <strong>Activity:</strong> ${activityNames[formData.activity]}<br>
+                    <strong>Base:</strong> ${baseNames[formData.baseType]}<br>
+                    <strong>Temperature:</strong> ${tempDisplay}<br>
+                    <strong>Duration:</strong> ${formData.duration} days<br>
+                    <strong>Mobility:</strong> ${formData.mobility}
+                </div>
+                
+                <div class="gear-section">
+            `;
+            
+            let totalItems = 0;
+            
+            // Critical items
+            html += renderPrioritySection('🔴 CRITICAL (Auto-packed)', result.critical, 'critical');
+            totalItems += countItems(result.critical);
+            
+            // Options
+            html += renderPrioritySection('🔵 OPTIONS (Choose one or more)', result.options, 'option');
+            totalItems += countItems(result.options);
+            
+            // Nice to have
+            html += renderPrioritySection('📦 NICE TO HAVE', result.nice, 'nice');
+            totalItems += countItems(result.nice);
+            
+            // Available
+            html += renderPrioritySection('💡 AVAILABLE (If needed)', result.available, 'available');
+            totalItems += countItems(result.available);
+            
+            html += `
+                </div>
+                <div class="stats">
+                    <strong>Total Items:</strong> ${totalItems}
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-final" onclick="showFinalList()">Show Final List</button>
+                    <button class="btn-clear" onclick="clearSelections()">Clear Selections</button>
+                </div>
+            `;
+            
+            document.getElementById('output').innerHTML = html + '<div id="finalList"></div>';
+        }
+        
+        function renderPrioritySection(title, groups, cssClass) {
+            const itemCount = countItems(groups);
+            if (itemCount === 0) return '';
+            
+            let html = `
+                <div class="priority-category">
+                    <div class="category-header">
+                        <h3>${title}</h3>
+                        <span class="category-count">(${itemCount} items)</span>
+                    </div>
+            `;
+            
+            for (let [system, items] of Object.entries(groups)) {
+                if (items.length > 0) {
+                    html += `
+                        <div class="system-group">
+                            <div class="system-name">${system}</div>
+                            <ul class="gear-list">
+                    `;
+                    
+                    items.forEach((item, idx) => {
+                        const itemId = `${cssClass}_${system.replace(/\s/g, '_')}_${idx}`;
+                        const clickable = cssClass !== 'critical' ? `onclick="toggleItem('${itemId}')"` : '';
+                        const qtyDisplay = item.quantity > 1 ? ` (${item.quantity})` : '';
+                        html += `<li class="gear-item ${cssClass}" id="${itemId}" ${clickable} data-name="${item.name}${qtyDisplay}">`;
+                        html += item.name + qtyDisplay;
+                        if (item.requires.length > 0) {
+                            html += `<span class="dependency">→ requires: ${item.requires.join(', ')}</span>`;
+                        }
+                        html += `</li>`;
+                    });
+                    
+                    html += `
+                            </ul>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += `</div>`;
+            return html;
+        }
+        
+        function toggleItem(itemId) {
+            const element = document.getElementById(itemId);
+            element.classList.toggle('selected');
+        }
+        
+        function showFinalList() {
+            const critical = document.querySelectorAll('.gear-item.critical');
+            const selected = document.querySelectorAll('.gear-item.selected');
+            
+            let html = '<h3>✓ Your Final Packing List</h3>';
+            
+            // Critical items
+            if (critical.length > 0) {
+                html += '<div class="final-section"><h4>Critical Items</h4><ul class="final-list">';
+                critical.forEach(item => {
+                    html += `<li>${item.getAttribute('data-name')}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+            // Selected optional items
+            if (selected.length > 0) {
+                html += '<div class="final-section"><h4>Your Selected Items</h4><ul class="final-list">';
+                selected.forEach(item => {
+                    html += `<li>${item.getAttribute('data-name')}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+            const total = critical.length + selected.length;
+            html += `<div class="stats"><strong>Total Items:</strong> ${total}</div>`;
+            
+            document.getElementById('finalList').innerHTML = html;
+            document.getElementById('finalList').classList.add('show');
+            document.getElementById('finalList').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function clearSelections() {
+            document.querySelectorAll('.gear-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+            document.getElementById('finalList').classList.remove('show');
+        }
+        
+        function countItems(groups) {
+            let count = 0;
+            for (let items of Object.values(groups)) {
+                count += items.length;
+            }
+            return count;
+        }
+    </script>
+</body>
+</html>
