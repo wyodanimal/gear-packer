@@ -563,6 +563,7 @@
 
         let containers = [];
         let inProgressTrips = [];
+        let completedTrips = [];
         let currentTripId = null;
         let currentItems = [];   // [{name, packed, container}]
         let lastFormData = null; // stashed so we can send activity/base/etc to create_trip
@@ -645,6 +646,7 @@
                 const data = await res.json();
                 containers = data.containers || [];
                 inProgressTrips = data.trips || [];
+                completedTrips = data.completedTrips || [];
                 statusEl.textContent = `✓ Trip tracker connected (${containers.length} containers, ${inProgressTrips.length} trip(s) in progress)`;
                 statusEl.style.color = '#4CAF50';
                 renderContinueBox();
@@ -660,20 +662,78 @@
 
         function renderContinueBox() {
             const box = document.getElementById('continueBox');
-            if (!inProgressTrips.length) {
-                box.innerHTML = '';
+            let html = '';
+
+            if (inProgressTrips.length) {
+                let optionsHtml = inProgressTrips.map(t =>
+                    `<option value="${t.trip_id}">${t.trip_name} — ${t.trip_date || 'no date'}</option>`
+                ).join('');
+                html += `
+                    <div class="continue-box">
+                        <h3>Continue an in-progress trip?</h3>
+                        <select id="continueSelect">${optionsHtml}</select>
+                        <button type="button" onclick="resumeTrip()">Resume Packing</button>
+                    </div>
+                `;
+            }
+
+            if (completedTrips.length) {
+                let rows = completedTrips.map(t => `
+                    <div class="pack-item">
+                        <span class="item-name">${t.trip_name} — ${t.trip_date || 'no date'}</span>
+                        <button type="button" class="btn-secondary" style="width:auto; padding:6px 12px;" onclick="viewCompletedTrip('${t.trip_id}')">View</button>
+                        <button type="button" class="btn-secondary" style="width:auto; padding:6px 12px; background:#a33;" onclick="deleteTrip('${t.trip_id}')">Delete</button>
+                    </div>
+                `).join('');
+                html += `
+                    <div class="continue-box">
+                        <h3>Completed Trips (reference)</h3>
+                        <ul class="pack-list" style="list-style:none;">${rows}</ul>
+                    </div>
+                `;
+            }
+
+            box.innerHTML = html;
+        }
+
+        function viewCompletedTrip(tripId) {
+            const trip = completedTrips.find(t => String(t.trip_id) === String(tripId));
+            if (!trip) return;
+            let items;
+            try {
+                items = JSON.parse(trip.items_json);
+            } catch (e) {
+                alert('Could not read this trip\'s saved item list — the data may be corrupted.');
                 return;
             }
-            let optionsHtml = inProgressTrips.map(t =>
-                `<option value="${t.trip_id}">${t.trip_name} — ${t.trip_date || 'no date'}</option>`
-            ).join('');
-            box.innerHTML = `
-                <div class="continue-box">
-                    <h3>Continue an in-progress trip?</h3>
-                    <select id="continueSelect">${optionsHtml}</select>
-                    <button type="button" onclick="resumeTrip()">Resume Packing</button>
-                </div>
-            `;
+            currentTripId = trip.trip_id;
+            currentItems = items;
+            document.getElementById('intakeSection').style.display = 'none';
+            document.getElementById('output').classList.remove('show');
+            document.getElementById('output').innerHTML = '';
+            renderPersistentPackingView(trip.trip_name, trip.trip_date, true);
+        }
+
+        function deleteTrip(tripId) {
+            if (!confirm('Delete this trip permanently? This cannot be undone.')) return;
+            fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_trip', trip_id: tripId }) })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        inProgressTrips = inProgressTrips.filter(t => String(t.trip_id) !== String(tripId));
+                        completedTrips = completedTrips.filter(t => String(t.trip_id) !== String(tripId));
+                        renderContinueBox();
+                        if (String(currentTripId) === String(tripId)) {
+                            currentTripId = null;
+                            document.getElementById('finalList').classList.remove('show');
+                            document.getElementById('finalList').innerHTML = '';
+                            document.getElementById('intakeSection').style.display = '';
+                        }
+                    } else {
+                        alert('Could not delete: ' + (data.error || 'unknown error'));
+                    }
+                })
+                .catch(err => alert('Could not reach trip tracker to delete this trip. Check your connection and try again.'));
         }
 
         function resumeTrip() {
@@ -1060,23 +1120,39 @@
             return opts;
         }
 
-        function renderPersistentPackingView(tripName, tripDate) {
+        function renderPersistentPackingView(tripName, tripDate, readOnly) {
             const packedCount = currentItems.filter(i => i.packed).length;
             const total = currentItems.length;
             const pct = total > 0 ? Math.round((packedCount / total) * 100) : 0;
 
             let itemsHtml = currentItems.map((item, idx) => `
                 <li class="pack-item ${item.packed ? 'is-packed' : ''}" data-idx="${idx}">
-                    <input type="checkbox" ${item.packed ? 'checked' : ''} onchange="updatePackedStatus(${idx}, this.checked)">
+                    <input type="checkbox" ${item.packed ? 'checked' : ''} ${readOnly ? 'disabled' : `onchange="updatePackedStatus(${idx}, this.checked)"`}>
                     <span class="item-name">${item.name}</span>
-                    <select onchange="updateContainer(${idx}, this.value)">
-                        ${containerOptionsHtml(item.container)}
-                    </select>
+                    ${readOnly
+                        ? `<span class="item-name" style="flex:0 0 180px; color:#888;">${item.container || '(no container set)'}</span>`
+                        : `<select onchange="updateContainer(${idx}, this.value)">${containerOptionsHtml(item.container)}</select>`
+                    }
                 </li>
             `).join('');
 
+            const actionButtons = readOnly
+                ? `
+                    <div class="action-buttons" style="margin-top:20px;">
+                        <button class="btn-secondary" style="background:#a33;" onclick="deleteTrip('${currentTripId}')">Delete Trip</button>
+                        <button class="btn-secondary" onclick="window.print()">Print</button>
+                    </div>
+                `
+                : `
+                    <div class="action-buttons" style="margin-top:20px;">
+                        <button class="btn-final" onclick="markTripComplete()">Mark Trip Complete</button>
+                        <button class="btn-secondary" style="background:#a33;" onclick="deleteTrip('${currentTripId}')">Delete Trip</button>
+                        <button class="btn-secondary" onclick="window.print()">Print</button>
+                    </div>
+                `;
+
             const html = `
-                <h3>${tripName} ${tripDate ? '— ' + tripDate : ''}</h3>
+                <h3>${tripName} ${tripDate ? '— ' + tripDate : ''} ${readOnly ? '<span style="color:#888; font-size:14px;">(completed — read only)</span>' : ''}</h3>
                 <div class="progress-bar-outer">
                     <div class="progress-bar-inner" style="width:${pct}%"></div>
                 </div>
@@ -1084,10 +1160,7 @@
                 <ul class="pack-list" id="packList">
                     ${itemsHtml}
                 </ul>
-                <div class="action-buttons" style="margin-top:20px;">
-                    <button class="btn-final" onclick="markTripComplete()">Mark Trip Complete</button>
-                    <button class="btn-secondary" onclick="window.print()">Print</button>
-                </div>
+                ${actionButtons}
                 <div class="sync-status" id="syncStatus"></div>
             `;
 
@@ -1154,10 +1227,10 @@
         }
 
         function markTripComplete() {
-            if (!confirm('Mark this trip as complete? It will drop off the Continue Packing list.')) return;
+            if (!confirm('Mark this trip as complete? It will move to your Completed Trips reference list and stop showing under Continue Packing.')) return;
             syncTripToServer('complete');
             setTimeout(() => {
-                alert('Trip marked complete.');
+                alert('Trip marked complete. It will now show up under Completed Trips on the main page.');
                 location.reload();
             }, 600);
         }
